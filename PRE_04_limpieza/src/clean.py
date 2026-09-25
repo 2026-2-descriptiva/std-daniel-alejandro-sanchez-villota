@@ -220,27 +220,4 @@ def make_replacements(series, replacements):
 
 
 def main():
-
-    df = pd.read_csv(INPUT_FILE)
-
-    df.columns = clean_column_names(df.columns)
-
-    df["supplier"] = clean_supplier(df["supplier"])
-    df["country"] = clean_country(df["country"])
-    df["city"] = clean_city(df["city"])
-    df["purchase_date"] = clean_purchase_date_format(df["purchase_date"])
-    df["amount"] = clean_amount(df["amount"])
-    df["discount"] = clean_discount(df["discount"])
-    df["weight"] = clean_weight(df["weight"])
-    df["unit_price"] = clean_unit_price(df["unit_price"])
-
-    df.to_csv(OUTPUT_FILE, index=False)
-
-
-if __name__ == "__main__":
-    main()
-    
-    
-    
-    
-    
+    pass
