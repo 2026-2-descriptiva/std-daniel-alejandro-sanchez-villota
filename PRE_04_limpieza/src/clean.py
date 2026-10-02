@@ -1,5 +1,4 @@
 import os
-
 import pandas as pd
 
 INPUT_FILE = "PRE_04_limpieza/data/ventas.csv"
