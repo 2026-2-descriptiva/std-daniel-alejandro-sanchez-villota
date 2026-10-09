@@ -7,5 +7,13 @@ def pregunta_01():
 
         214
     """
+    suma = 0
 
-    raise NotImplementedError
+    with open('files/input/data.csv', 'r') as data:
+
+        for linea in data:
+            columnas = linea.strip().split('\t')
+            suma += int(columnas[1])
+            
+    return suma
+    print(pregunta_01())

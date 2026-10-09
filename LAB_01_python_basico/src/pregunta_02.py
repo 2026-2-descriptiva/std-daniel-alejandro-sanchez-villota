@@ -8,5 +8,14 @@ def pregunta_02():
 
         [("A", 8), ("B", 7), ("C", 5), ...]
     """
+    conteo = {}
 
-    raise NotImplementedError
+    with open('files/input/data.csv', 'r') as data:
+        
+        for line in data:
+            letra = line.strip().split('\t')[0]
+            conteo[letra] = conteo.get(letra, 0) + 1
+
+    return sorted(conteo.items())
+
+    print(pregunta_02())
