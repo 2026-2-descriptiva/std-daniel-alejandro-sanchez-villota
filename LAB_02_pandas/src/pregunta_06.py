@@ -1,3 +1,12 @@
+import os
+
+import pandas as pd
+
+ruta_archivo = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "data", "tbl1.tsv"
+)
+
+
 def pregunta_06():
     """
     Usando `data/tbl1.tsv`, obtenga los valores distintos de la columna `c4`,
@@ -8,5 +17,10 @@ def pregunta_06():
 
         ["A", "B", "C", "D", "E", "F", "G"]
     """
+    df = pd.read_csv(ruta_archivo, sep="\t")
 
-    raise NotImplementedError
+    return sorted(df["c4"].str.upper().unique())
+
+
+if __name__ == "__main__":
+    print(pregunta_06())
