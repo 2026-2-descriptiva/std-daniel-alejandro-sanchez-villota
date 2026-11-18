@@ -1,4 +1,25 @@
+import os
+
+import numpy as np
 import pandas as pd
+
+directorio = os.path.dirname(os.path.abspath(__file__))
+ruta_data = os.path.join(directorio, "..", "data")
+ruta_submission = os.path.join(directorio, "..", "submission")
+
+PLAZO_HABIL = 15
+
+ARCHIVOS = {
+    "letter": "historical_requests_letter.csv.gz",
+    "web": "historical_requests_web.csv.gz",
+}
+
+
+def dias_habiles(entrada, salida):
+    """Días lunes a viernes posteriores a `entrada`, hasta `salida` incluida."""
+    inicio = (entrada + pd.Timedelta(days=1)).to_numpy().astype("datetime64[D]")
+    fin = (salida + pd.Timedelta(days=1)).to_numpy().astype("datetime64[D]")
+    return np.busday_count(inicio, fin)
 
 
 def pregunta_01() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -60,5 +81,94 @@ def pregunta_01() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         letter,28138,...
         ...
     """
+    # Cada canal se deduplica por separado, antes de unirlos
+    partes = []
+    for canal, archivo in ARCHIVOS.items():
+        parte = pd.read_csv(
+            os.path.join(ruta_data, archivo), parse_dates=["in_date", "out_date"]
+        ).drop_duplicates()
+        parte["channel"] = canal
+        partes.append(parte)
 
-    raise NotImplementedError
+    df = pd.concat(partes, ignore_index=True)
+
+    # Estado y tiempos de respuesta
+    respondidas = df["out_date"].notna()
+
+    df["answered"] = respondidas.astype(int)
+    df["pending"] = (~respondidas).astype(int)
+    df["calendar_days"] = (df["out_date"] - df["in_date"]).dt.days
+
+    df["business_days"] = np.nan
+    df.loc[respondidas, "business_days"] = dias_habiles(
+        df.loc[respondidas, "in_date"], df.loc[respondidas, "out_date"]
+    )
+
+    # Pendiente = no cumplió; el fillna(False) lo deja en 0
+    df["on_time"] = (df["business_days"] <= PLAZO_HABIL).fillna(False).astype(int)
+
+    df["year"] = df["in_date"].dt.year
+
+    # ----- 1. Por canal -----
+    channel_summary = (
+        df.groupby("channel")
+        .agg(
+            requests=("channel", "size"),
+            answered=("answered", "sum"),
+            pending=("pending", "sum"),
+            median_business_days=("business_days", "median"),
+            on_time_rate=("on_time", "mean"),
+        )
+        .reset_index()
+        .sort_values("channel")
+    )
+
+    # ----- 2. Por año y canal -----
+    yearly_summary = (
+        df.groupby(["year", "channel"])
+        .agg(
+            requests=("channel", "size"),
+            pending=("pending", "sum"),
+            on_time_rate=("on_time", "mean"),
+        )
+        .reset_index()
+        .sort_values(["year", "channel"])
+    )
+
+    # ----- 3. Por día de entrada -----
+    entry_day_summary = (
+        df.groupby("day_name")
+        .agg(
+            requests=("day_name", "size"),
+            median_calendar_days=("calendar_days", "median"),
+            median_business_days=("business_days", "median"),
+        )
+        .reset_index()
+    )
+
+    # El orden lunes-domingo se deduce de las fechas, no de los nombres
+    orden = df.drop_duplicates("day_name").set_index("day_name")["in_date"].dt.dayofweek
+    entry_day_summary = (
+        entry_day_summary.assign(_orden=entry_day_summary["day_name"].map(orden))
+        .sort_values("_orden")
+        .drop(columns="_orden")
+        .reset_index(drop=True)
+    )
+
+    os.makedirs(ruta_submission, exist_ok=True)
+    tablas = [
+        ("channel_summary", channel_summary),
+        ("yearly_summary", yearly_summary),
+        ("entry_day_summary", entry_day_summary),
+    ]
+    for nombre, tabla in tablas:
+        tabla.to_csv(os.path.join(ruta_submission, f"{nombre}.csv"), index=False)
+
+    return channel_summary, yearly_summary, entry_day_summary
+
+
+if __name__ == "__main__":
+    channel, yearly, entry = pregunta_01()
+    print(channel)
+    print(yearly.head())
+    print(entry)
