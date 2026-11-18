@@ -1,5 +1,23 @@
-def pregunta_04():
+import gzip
+import os
 
+ruta_archivo = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "data", "data.csv.gz"
+)
+
+
+def leer_registros():
+    """Lee el archivo comprimido y retorna una lista de columnas por registro."""
+    registros = []
+    with gzip.open(ruta_archivo, "rt") as archivo:
+        for linea in archivo:
+            columnas = linea.strip().split("\t")
+            if len(columnas) == 5:
+                registros.append(columnas)
+    return registros
+
+
+def pregunta_04():
     """
     Cuente cuántos registros hay en cada mes, usando la fecha de la tercera
     columna (`date`). Represente el mes como un texto de dos dígitos y retorne
@@ -9,21 +27,13 @@ def pregunta_04():
 
         [("01", 3), ("02", 4), ("03", 2), ...]
     """
-    with open("LAB_01_python_basico/data/data.csv", "r") as f:
-      
-       data = f.readlines()
+    conteo = {}
+    for _, _, fecha, _, _ in leer_registros():
+        mes = fecha.split("-")[1]
+        conteo[mes] = conteo.get(mes, 0) + 1
 
-    month_counts = {}
-    for line in data:
-        parts = line.strip().split("\t")
-        date = parts[2]
-        month = date.split("-")[1]
-        if month in month_counts:
-            month_counts[month] += 1
-        else:
-            month_counts[month] = 1
+    return sorted(conteo.items())
 
-    result = sorted((month, month_counts[month]) for month in sorted(month_counts))
-    return result
 
-print(pregunta_04())  
+if __name__ == "__main__":
+    print(pregunta_04())
