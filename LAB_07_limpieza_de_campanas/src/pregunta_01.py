@@ -1,4 +1,26 @@
+import glob
+import os
+
 import pandas as pd
+
+directorio = os.path.dirname(os.path.abspath(__file__))
+ruta_data = os.path.join(directorio, "..", "data")
+ruta_submission = os.path.join(directorio, "..", "submission")
+
+MESES = {
+    "jan": "01",
+    "feb": "02",
+    "mar": "03",
+    "apr": "04",
+    "may": "05",
+    "jun": "06",
+    "jul": "07",
+    "aug": "08",
+    "sep": "09",
+    "oct": "10",
+    "nov": "11",
+    "dec": "12",
+}
 
 
 def clean_campaign_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -42,5 +64,78 @@ def clean_campaign_data() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         0,1,261,...,2022-05-13
         ...
     """
+    # pandas descomprime el .gz solo, por la extensión
+    archivos = sorted(
+        glob.glob(os.path.join(ruta_data, "bank-marketing-campaing-*.csv.gz"))
+    )
+    df = pd.concat([pd.read_csv(archivo) for archivo in archivos], ignore_index=True)
 
-    raise NotImplementedError
+    # Descarta la columna de índice si los archivos la traen
+    df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
+
+    # ----- client -----
+    client = df[
+        [
+            "client_id",
+            "age",
+            "job",
+            "marital",
+            "education",
+            "credit_default",
+            "mortgage",
+        ]
+    ].copy()
+
+    client["job"] = (
+        client["job"]
+        .str.replace(".", "", regex=False)
+        .str.replace("-", "_", regex=False)
+    )
+    client["education"] = (
+        client["education"].str.replace(".", "_", regex=False).replace("unknown", pd.NA)
+    )
+    client["credit_default"] = (client["credit_default"] == "yes").astype(int)
+    client["mortgage"] = (client["mortgage"] == "yes").astype(int)
+
+    # ----- campaign -----
+    campaign = df[
+        [
+            "client_id",
+            "number_contacts",
+            "contact_duration",
+            "previous_campaign_contacts",
+            "previous_outcome",
+            "campaign_outcome",
+        ]
+    ].copy()
+
+    campaign["previous_outcome"] = (campaign["previous_outcome"] == "success").astype(
+        int
+    )
+    campaign["campaign_outcome"] = (campaign["campaign_outcome"] == "yes").astype(int)
+    campaign["last_contact_date"] = (
+        "2022-"
+        + df["month"].str.lower().map(MESES)
+        + "-"
+        + df["day"].astype(str).str.zfill(2)
+    )
+
+    # ----- economics -----
+    economics = df[["client_id", "cons_price_idx", "euribor_three_months"]].copy()
+
+    os.makedirs(ruta_submission, exist_ok=True)
+    for nombre, tabla in [
+        ("client", client),
+        ("campaign", campaign),
+        ("economics", economics),
+    ]:
+        tabla.to_csv(os.path.join(ruta_submission, f"{nombre}.csv"), index=False)
+
+    return client, campaign, economics
+
+
+if __name__ == "__main__":
+    client, campaign, economics = clean_campaign_data()
+    print(client.head())
+    print(campaign.head())
+    print(economics.head())
